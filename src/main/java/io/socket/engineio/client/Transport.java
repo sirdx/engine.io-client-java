@@ -68,40 +68,31 @@ public abstract class Transport extends Emitter {
     }
 
     public Transport open() {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                if (Transport.this.readyState == ReadyState.CLOSED || Transport.this.readyState == null) {
-                    Transport.this.readyState = ReadyState.OPENING;
-                    Transport.this.doOpen();
-                }
+        EventThread.exec(() -> {
+            if (Transport.this.readyState == ReadyState.CLOSED || Transport.this.readyState == null) {
+                Transport.this.readyState = ReadyState.OPENING;
+                Transport.this.doOpen();
             }
         });
         return this;
     }
 
     public Transport close() {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                if (Transport.this.readyState == ReadyState.OPENING || Transport.this.readyState == ReadyState.OPEN) {
-                    Transport.this.doClose();
-                    Transport.this.onClose();
-                }
+        EventThread.exec(() -> {
+            if (Transport.this.readyState == ReadyState.OPENING || Transport.this.readyState == ReadyState.OPEN) {
+                Transport.this.doClose();
+                Transport.this.onClose();
             }
         });
         return this;
     }
 
     public void send(final Packet[] packets) {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                if (Transport.this.readyState == ReadyState.OPEN) {
-                    Transport.this.write(packets);
-                } else {
-                    throw new RuntimeException("Transport not open");
-                }
+        EventThread.exec(() -> {
+            if (Transport.this.readyState == ReadyState.OPEN) {
+                Transport.this.write(packets);
+            } else {
+                throw new RuntimeException("Transport not open");
             }
         });
     }

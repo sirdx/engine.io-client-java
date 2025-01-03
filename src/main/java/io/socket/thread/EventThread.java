@@ -73,22 +73,19 @@ public class EventThread extends Thread {
           executor = service;
         }
 
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    task.run();
-                } catch (Throwable t) {
-                    logger.log(Level.SEVERE, "Task threw exception", t);
-                    throw t;
-                } finally {
-                    synchronized (EventThread.class) {
-                        counter--;
-                        if (counter == 0) {
-                            service.shutdown();
-                            service = null;
-                            thread = null;
-                        }
+        executor.execute(() -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                logger.log(Level.SEVERE, "Task threw exception", t);
+                throw t;
+            } finally {
+                synchronized (EventThread.class) {
+                    counter--;
+                    if (counter == 0) {
+                        service.shutdown();
+                        service = null;
+                        thread = null;
                     }
                 }
             }

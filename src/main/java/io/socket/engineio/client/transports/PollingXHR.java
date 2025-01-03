@@ -25,7 +25,7 @@ public class PollingXHR extends Polling {
 
     private static final Logger logger = Logger.getLogger(PollingXHR.class.getName());
 
-    private static boolean LOGGABLE_FINE = logger.isLoggable(Level.FINE);
+    private static final boolean LOGGABLE_FINE = logger.isLoggable(Level.FINE);
 
     public PollingXHR(Transport.Options opts) {
         super(opts);
@@ -46,23 +46,10 @@ public class PollingXHR extends Polling {
         Request req = new Request(opts);
 
         final PollingXHR self = this;
-        req.on(Request.EVENT_REQUEST_HEADERS, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                // Never execute asynchronously for support to modify headers.
-                self.emit(Transport.EVENT_REQUEST_HEADERS, args[0]);
-            }
-        }).on(Request.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
-            @Override
-            public void call(final Object... args) {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        self.emit(Transport.EVENT_RESPONSE_HEADERS, args[0]);
-                    }
-                });
-            }
-        });
+        req.on(Request.EVENT_REQUEST_HEADERS, args -> {
+            // Never execute asynchronously for support to modify headers.
+            self.emit(Transport.EVENT_REQUEST_HEADERS, args[0]);
+        }).on(Request.EVENT_RESPONSE_HEADERS, args -> EventThread.exec(() -> self.emit(Transport.EVENT_RESPONSE_HEADERS, args[0])));
         return req;
     }
 
@@ -74,29 +61,11 @@ public class PollingXHR extends Polling {
         opts.extraHeaders = this.extraHeaders;
         Request req = this.request(opts);
         final PollingXHR self = this;
-        req.on(Request.EVENT_SUCCESS, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        fn.run();
-                    }
-                });
-            }
-        });
-        req.on(Request.EVENT_ERROR, new Emitter.Listener() {
-            @Override
-            public void call(final Object... args) {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        Exception err = args.length > 0 && args[0] instanceof Exception ? (Exception)args[0] : null;
-                        self.onError("xhr post error", err);
-                    }
-                });
-            }
-        });
+        req.on(Request.EVENT_SUCCESS, args -> EventThread.exec(() -> fn.run()));
+        req.on(Request.EVENT_ERROR, args -> EventThread.exec(() -> {
+            Exception err = args.length > 0 && args[0] instanceof Exception ? (Exception)args[0] : null;
+            self.onError("xhr post error", err);
+        }));
         req.create();
     }
 
@@ -105,30 +74,14 @@ public class PollingXHR extends Polling {
         logger.fine("xhr poll");
         Request req = this.request();
         final PollingXHR self = this;
-        req.on(Request.EVENT_DATA, new Emitter.Listener() {
-            @Override
-            public void call(final Object... args) {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        Object arg = args.length > 0 ? args[0] : null;
-                        self.onData((String)arg);
-                    }
-                });
-            }
-        });
-        req.on(Request.EVENT_ERROR, new Emitter.Listener() {
-            @Override
-            public void call(final Object... args) {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        Exception err = args.length > 0 && args[0] instanceof Exception ? (Exception) args[0] : null;
-                        self.onError("xhr poll error", err);
-                    }
-                });
-            }
-        });
+        req.on(Request.EVENT_DATA, args -> EventThread.exec(() -> {
+            Object arg = args.length > 0 ? args[0] : null;
+            self.onData((String)arg);
+        }));
+        req.on(Request.EVENT_ERROR, args -> EventThread.exec(() -> {
+            Exception err = args.length > 0 && args[0] instanceof Exception ? (Exception) args[0] : null;
+            self.onError("xhr poll error", err);
+        }));
         req.create();
     }
 
@@ -144,13 +97,13 @@ public class PollingXHR extends Polling {
 
         private static final MediaType TEXT_MEDIA_TYPE = MediaType.parse(TEXT_CONTENT_TYPE);
 
-        private String method;
-        private String uri;
+        private final String method;
+        private final String uri;
 
-        private String data;
+        private final String data;
 
-        private Call.Factory callFactory;
-        private Map<String, List<String>> extraHeaders;
+        private final Call.Factory callFactory;
+        private final Map<String, List<String>> extraHeaders;
         private Response response;
         private Call requestCall;
 
@@ -165,15 +118,15 @@ public class PollingXHR extends Polling {
         public void create() {
             final Request self = this;
             if (LOGGABLE_FINE) logger.fine(String.format("xhr open %s: %s", this.method, this.uri));
-            Map<String, List<String>> headers = new TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER);
+            Map<String, List<String>> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
             if (this.extraHeaders != null) {
                 headers.putAll(this.extraHeaders);
             }
             if ("POST".equals(this.method)) {
-                headers.put("Content-type", new LinkedList<String>(Collections.singletonList(TEXT_CONTENT_TYPE)));
+                headers.put("Content-type", new LinkedList<>(Collections.singletonList(TEXT_CONTENT_TYPE)));
             }
 
-            headers.put("Accept", new LinkedList<String>(Collections.singletonList("*/*")));
+            headers.put("Accept", new LinkedList<>(Collections.singletonList("*/*")));
 
             this.onRequestHeaders(headers);
 
@@ -205,7 +158,7 @@ public class PollingXHR extends Polling {
                 }
 
                 @Override
-                public void onResponse(Call call, Response response) throws IOException {
+                public void onResponse(Call call, Response response) {
                     self.response = response;
                     self.onResponseHeaders(response.headers().toMultimap());
 

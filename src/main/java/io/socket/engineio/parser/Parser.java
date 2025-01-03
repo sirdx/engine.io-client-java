@@ -1,5 +1,6 @@
 package io.socket.engineio.parser;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,10 +20,10 @@ public class Parser {
         put(Packet.NOOP, 6);
     }};
 
-    private static final Map<Integer, String> packetslist = new HashMap<>();
+    private static final Map<Integer, String> packetsList = new HashMap<>();
     static {
         for (Map.Entry<String, Integer> entry : packets.entrySet()) {
-            packetslist.put(entry.getValue(), entry.getKey());
+            packetsList.put(entry.getValue(), entry.getKey());
         }
     }
 
@@ -43,7 +44,7 @@ public class Parser {
     private static void encodePacketAsBase64(Packet packet, EncodeCallback<String> callback) {
         if (packet.data instanceof byte[]) {
             byte[] data = ((Packet<byte[]>) packet).data;
-            String value = "b" + Base64.encodeToString(data, Base64.DEFAULT);
+            String value = "b" + Base64.getEncoder().encodeToString(data);
             callback.call(value);
         } else {
             encodePacket(packet, callback);
@@ -62,14 +63,14 @@ public class Parser {
             type = -1;
         }
 
-        if (type < 0 || type >= packetslist.size()) {
+        if (type < 0 || type >= packetsList.size()) {
             return err;
         }
 
         if (data.length() > 1) {
-            return new Packet<String>(packetslist.get(type), data.substring(1));
+            return new Packet<>(packetsList.get(type), data.substring(1));
         } else {
-            return new Packet<String>(packetslist.get(type));
+            return new Packet<>(packetsList.get(type));
         }
     }
 
@@ -79,7 +80,7 @@ public class Parser {
         }
 
         if (data.charAt(0) == 'b') {
-            return new Packet(Packet.MESSAGE, Base64.decode(data.substring(1), Base64.DEFAULT));
+            return new Packet(Packet.MESSAGE, Base64.getDecoder().decode(data.substring(1)));
         } else {
             return decodePacket(data);
         }
@@ -99,13 +100,10 @@ public class Parser {
 
         for (int i = 0, l = packets.length; i < l; i++) {
             final boolean isLast = i == l - 1;
-            encodePacketAsBase64(packets[i], new EncodeCallback<String>() {
-                @Override
-                public void call(String message) {
-                    result.append(message);
-                    if (!isLast) {
-                        result.append(SEPARATOR);
-                    }
+            encodePacketAsBase64(packets[i], message -> {
+                result.append(message);
+                if (!isLast) {
+                    result.append(SEPARATOR);
                 }
             });
         }
@@ -114,7 +112,7 @@ public class Parser {
     }
 
     public static void decodePayload(String data, DecodePayloadCallback<String> callback) {
-        if (data == null || data.length() == 0) {
+        if (data == null || data.isEmpty()) {
             callback.call(err, 0, 1);
             return;
         }

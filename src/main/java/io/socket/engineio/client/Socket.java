@@ -102,25 +102,25 @@ public class Socket extends Emitter {
     private static okhttp3.Call.Factory defaultCallFactory;
     private static OkHttpClient defaultOkHttpClient;
 
-    private boolean secure;
-    private boolean upgrade;
-    private boolean timestampRequests;
+    private final boolean secure;
+    private final boolean upgrade;
+    private final boolean timestampRequests;
     private boolean upgrading;
-    private boolean rememberUpgrade;
+    private final boolean rememberUpgrade;
     /*package*/ int port;
-    private int policyPort;
+    private final int policyPort;
     private int prevBufferLen;
     private long pingInterval;
     private long pingTimeout;
     private String id;
     /*package*/ String hostname;
-    private String path;
-    private String timestampParam;
-    private List<String> transports;
-    private Map<String, Transport.Options> transportOptions;
+    private final String path;
+    private final String timestampParam;
+    private final List<String> transports;
+    private final Map<String, Transport.Options> transportOptions;
     private List<String> upgrades;
-    private Map<String, String> query;
-    /*package*/ LinkedList<Packet> writeBuffer = new LinkedList<Packet>();
+    private final Map<String, String> query;
+    /*package*/ LinkedList<Packet> writeBuffer = new LinkedList<>();
     /*package*/ Transport transport;
     private Future pingTimeoutTimer;
     private okhttp3.WebSocket.Factory webSocketFactory;
@@ -129,12 +129,7 @@ public class Socket extends Emitter {
 
     private ReadyState readyState;
     private ScheduledExecutorService heartbeatScheduler;
-    private final Listener onHeartbeatAsListener = new Listener() {
-        @Override
-        public void call(Object... args) {
-            Socket.this.onHeartbeat();
-        }
-    };
+    private final Listener onHeartbeatAsListener = args -> Socket.this.onHeartbeat();
 
     public Socket() {
         this(new Options());
@@ -192,15 +187,15 @@ public class Socket extends Emitter {
         this.hostname = opts.hostname != null ? opts.hostname : "localhost";
         this.port = opts.port;
         this.query = opts.query != null ?
-                ParseQS.decode(opts.query) : new HashMap<String, String>();
+                ParseQS.decode(opts.query) : new HashMap<>();
         this.upgrade = opts.upgrade;
         this.path = (opts.path != null ? opts.path : "/engine.io").replaceAll("/$", "") + "/";
         this.timestampParam = opts.timestampParam != null ? opts.timestampParam : "t";
         this.timestampRequests = opts.timestampRequests;
-        this.transports = new ArrayList<String>(Arrays.asList(opts.transports != null ?
+        this.transports = new ArrayList<>(Arrays.asList(opts.transports != null ?
                 opts.transports : new String[]{Polling.NAME, WebSocket.NAME}));
         this.transportOptions = opts.transportOptions != null ?
-                opts.transportOptions : new HashMap<String, Transport.Options>();
+                opts.transportOptions : new HashMap<>();
         this.policyPort = opts.policyPort != 0 ? opts.policyPort : 843;
         this.rememberUpgrade = opts.rememberUpgrade;
         this.callFactory = opts.callFactory != null ? opts.callFactory : defaultCallFactory;
@@ -237,30 +232,22 @@ public class Socket extends Emitter {
      * @return a reference to to this object.
      */
     public Socket open() {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                String transportName;
-                if (Socket.this.rememberUpgrade && Socket.priorWebsocketSuccess && Socket.this.transports.contains(WebSocket.NAME)) {
-                    transportName = WebSocket.NAME;
-                } else if (0 == Socket.this.transports.size()) {
-                    // Emit error on next tick so it can be listened to
-                    final Socket self = Socket.this;
-                    EventThread.nextTick(new Runnable() {
-                        @Override
-                        public void run() {
-                            self.emit(Socket.EVENT_ERROR, new EngineIOException("No transports available"));
-                        }
-                    });
-                    return;
-                } else {
-                    transportName = Socket.this.transports.get(0);
-                }
-                Socket.this.readyState = ReadyState.OPENING;
-                Transport transport = Socket.this.createTransport(transportName);
-                Socket.this.setTransport(transport);
-                transport.open();
+        EventThread.exec(() -> {
+            String transportName;
+            if (Socket.this.rememberUpgrade && Socket.priorWebsocketSuccess && Socket.this.transports.contains(WebSocket.NAME)) {
+                transportName = WebSocket.NAME;
+            } else if (Socket.this.transports.isEmpty()) {
+                // Emit error on next tick so it can be listened to
+                final Socket self = Socket.this;
+                EventThread.nextTick(() -> self.emit(Socket.EVENT_ERROR, new EngineIOException("No transports available")));
+                return;
+            } else {
+                transportName = Socket.this.transports.get(0);
             }
+            Socket.this.readyState = ReadyState.OPENING;
+            Transport transport = Socket.this.createTransport(transportName);
+            Socket.this.setTransport(transport);
+            transport.open();
         });
         return this;
     }
@@ -269,7 +256,7 @@ public class Socket extends Emitter {
         if (logger.isLoggable(Level.FINE)) {
             logger.fine(String.format("creating transport '%s'", name));
         }
-        Map<String, String> query = new HashMap<String, String>(this.query);
+        Map<String, String> query = new HashMap<>(this.query);
 
         query.put("EIO", String.valueOf(Parser.PROTOCOL));
         query.put("transport", name);
@@ -324,27 +311,11 @@ public class Socket extends Emitter {
 
         this.transport = transport;
 
-        transport.on(Transport.EVENT_DRAIN, new Listener() {
-            @Override
-            public void call(Object... args) {
-                self.onDrain();
-            }
-        }).on(Transport.EVENT_PACKET, new Listener() {
-            @Override
-            public void call(Object... args) {
-                self.onPacket(args.length > 0 ? (Packet) args[0] : null);
-            }
-        }).on(Transport.EVENT_ERROR, new Listener() {
-            @Override
-            public void call(Object... args) {
-                self.onError(args.length > 0 ? (Exception) args[0] : null);
-            }
-        }).on(Transport.EVENT_CLOSE, new Listener() {
-            @Override
-            public void call(Object... args) {
-                self.onClose("transport close");
-            }
-        });
+        transport.on(Transport.EVENT_DRAIN, args -> self.onDrain())
+                .on(Transport.EVENT_PACKET, args -> self.onPacket(args.length > 0 ? (Packet) args[0] : null))
+                .on(Transport.EVENT_ERROR, args -> self.onError(args.length > 0 ? (Exception) args[0] : null))
+                .on(Transport.EVENT_CLOSE, args -> self.onClose("transport close")
+        );
     }
 
     private void probe(final String name) {
@@ -359,143 +330,112 @@ public class Socket extends Emitter {
 
         final Runnable[] cleanup = new Runnable[1];
 
-        final Listener onTransportOpen = new Listener() {
-            @Override
-            public void call(Object... args) {
+        final Listener onTransportOpen = args -> {
+            if (failed[0]) return;
+
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine(String.format("probe transport '%s' opened", name));
+            }
+            Packet<String> packet = new Packet<>(Packet.PING, "probe");
+            transport[0].send(new Packet[] {packet});
+            transport[0].once(Transport.EVENT_PACKET, args1 -> {
                 if (failed[0]) return;
 
-                if (logger.isLoggable(Level.FINE)) {
-                    logger.fine(String.format("probe transport '%s' opened", name));
-                }
-                Packet<String> packet = new Packet<String>(Packet.PING, "probe");
-                transport[0].send(new Packet[] {packet});
-                transport[0].once(Transport.EVENT_PACKET, new Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        if (failed[0]) return;
-
-                        Packet msg = (Packet)args[0];
-                        if (Packet.PONG.equals(msg.type) && "probe".equals(msg.data)) {
-                            if (logger.isLoggable(Level.FINE)) {
-                                logger.fine(String.format("probe transport '%s' pong", name));
-                            }
-                            self.upgrading = true;
-                            self.emit(EVENT_UPGRADING, transport[0]);
-                            if (null == transport[0]) return;
-                            Socket.priorWebsocketSuccess = WebSocket.NAME.equals(transport[0].name);
-
-                            if (logger.isLoggable(Level.FINE)) {
-                                logger.fine(String.format("pausing current transport '%s'", self.transport.name));
-                            }
-                            ((Polling)self.transport).pause(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (failed[0]) return;
-                                    if (ReadyState.CLOSED == self.readyState) return;
-
-                                    logger.fine("changing transport and sending upgrade packet");
-
-                                    cleanup[0].run();
-
-                                    self.setTransport(transport[0]);
-                                    Packet packet = new Packet(Packet.UPGRADE);
-                                    transport[0].send(new Packet[]{packet});
-                                    self.emit(EVENT_UPGRADE, transport[0]);
-                                    transport[0] = null;
-                                    self.upgrading = false;
-                                    self.flush();
-                                }
-                            });
-                        } else {
-                            if (logger.isLoggable(Level.FINE)) {
-                                logger.fine(String.format("probe transport '%s' failed", name));
-                            }
-                            EngineIOException err = new EngineIOException(PROBE_ERROR);
-                            err.transport = transport[0].name;
-                            self.emit(EVENT_UPGRADE_ERROR, err);
-                        }
+                Packet msg = (Packet) args1[0];
+                if (Packet.PONG.equals(msg.type) && "probe".equals(msg.data)) {
+                    if (logger.isLoggable(Level.FINE)) {
+                        logger.fine(String.format("probe transport '%s' pong", name));
                     }
-                });
-            }
+                    self.upgrading = true;
+                    self.emit(EVENT_UPGRADING, transport[0]);
+                    if (null == transport[0]) return;
+                    Socket.priorWebsocketSuccess = WebSocket.NAME.equals(transport[0].name);
+
+                    if (logger.isLoggable(Level.FINE)) {
+                        logger.fine(String.format("pausing current transport '%s'", self.transport.name));
+                    }
+                    ((Polling)self.transport).pause(() -> {
+                        if (failed[0]) return;
+                        if (ReadyState.CLOSED == self.readyState) return;
+
+                        logger.fine("changing transport and sending upgrade packet");
+
+                        cleanup[0].run();
+
+                        self.setTransport(transport[0]);
+                        Packet packet1 = new Packet(Packet.UPGRADE);
+                        transport[0].send(new Packet[]{packet1});
+                        self.emit(EVENT_UPGRADE, transport[0]);
+                        transport[0] = null;
+                        self.upgrading = false;
+                        self.flush();
+                    });
+                } else {
+                    if (logger.isLoggable(Level.FINE)) {
+                        logger.fine(String.format("probe transport '%s' failed", name));
+                    }
+                    EngineIOException err = new EngineIOException(PROBE_ERROR);
+                    err.transport = transport[0].name;
+                    self.emit(EVENT_UPGRADE_ERROR, err);
+                }
+            });
         };
 
-        final Listener freezeTransport = new Listener() {
-            @Override
-            public void call(Object... args) {
-                if (failed[0]) return;
+        final Listener freezeTransport = args -> {
+            if (failed[0]) return;
 
-                failed[0] = true;
+            failed[0] = true;
 
-                cleanup[0].run();
+            cleanup[0].run();
 
-                transport[0].close();
-                transport[0] = null;
-            }
+            transport[0].close();
+            transport[0] = null;
         };
 
         // Handle any error that happens while probing
-        final Listener onerror = new Listener() {
-            @Override
-            public void call(Object... args) {
-                Object err = args[0];
-                EngineIOException error;
-                if (err instanceof Exception) {
-                    error = new EngineIOException(PROBE_ERROR, (Exception)err);
-                } else if (err instanceof String) {
-                    error = new EngineIOException("probe error: " + (String)err);
-                } else {
-                    error = new EngineIOException(PROBE_ERROR);
-                }
-                error.transport = transport[0].name;
-
-                freezeTransport.call();
-
-                if (logger.isLoggable(Level.FINE)) {
-                    logger.fine(String.format("probe transport \"%s\" failed because of error: %s", name, err));
-                }
-
-                self.emit(EVENT_UPGRADE_ERROR, error);
+        final Listener onerror = args -> {
+            Object err = args[0];
+            EngineIOException error;
+            if (err instanceof Exception) {
+                error = new EngineIOException(PROBE_ERROR, (Exception)err);
+            } else if (err instanceof String) {
+                error = new EngineIOException("probe error: " + err);
+            } else {
+                error = new EngineIOException(PROBE_ERROR);
             }
+            error.transport = transport[0].name;
+
+            freezeTransport.call();
+
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine(String.format("probe transport \"%s\" failed because of error: %s", name, err));
+            }
+
+            self.emit(EVENT_UPGRADE_ERROR, error);
         };
 
-        final Listener onTransportClose = new Listener() {
-            @Override
-            public void call(Object... args) {
-                onerror.call("transport closed");
-            }
-        };
+        final Listener onTransportClose = args -> onerror.call("transport closed");
 
         // When the socket is closed while we're probing
-        final Listener onclose = new Listener() {
-            @Override
-            public void call(Object... args) {
-                onerror.call("socket closed");
-            }
-        };
+        final Listener onclose = args -> onerror.call("socket closed");
 
         // When the socket is upgraded while we're probing
-        final Listener onupgrade = new Listener() {
-            @Override
-            public void call(Object... args) {
-                Transport to = (Transport)args[0];
-                if (transport[0] != null && !to.name.equals(transport[0].name)) {
-                    if (logger.isLoggable(Level.FINE)) {
-                        logger.fine(String.format("'%s' works - aborting '%s'", to.name, transport[0].name));
-                    }
-                    freezeTransport.call();
+        final Listener onupgrade = args -> {
+            Transport to = (Transport)args[0];
+            if (transport[0] != null && !to.name.equals(transport[0].name)) {
+                if (logger.isLoggable(Level.FINE)) {
+                    logger.fine(String.format("'%s' works - aborting '%s'", to.name, transport[0].name));
                 }
+                freezeTransport.call();
             }
         };
 
-        cleanup[0] = new Runnable() {
-            @Override
-            public void run() {
-                transport[0].off(Transport.EVENT_OPEN, onTransportOpen);
-                transport[0].off(Transport.EVENT_ERROR, onerror);
-                transport[0].off(Transport.EVENT_CLOSE, onTransportClose);
-                self.off(EVENT_CLOSE, onclose);
-                self.off(EVENT_UPGRADING, onupgrade);
-            }
+        cleanup[0] = () -> {
+            transport[0].off(Transport.EVENT_OPEN, onTransportOpen);
+            transport[0].off(Transport.EVENT_ERROR, onerror);
+            transport[0].off(Transport.EVENT_CLOSE, onTransportClose);
+            self.off(EVENT_CLOSE, onclose);
+            self.off(EVENT_UPGRADING, onupgrade);
         };
 
         transport[0].once(Transport.EVENT_OPEN, onTransportOpen);
@@ -542,12 +482,7 @@ public class Socket extends Emitter {
                 }
             } else if (Packet.PING.equals(packet.type)) {
                 this.emit(EVENT_PING);
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        Socket.this.sendPacket(Packet.PONG, null);
-                    }
-                });
+                EventThread.exec(() -> Socket.this.sendPacket(Packet.PONG, null));
             } else if (Packet.ERROR.equals(packet.type)) {
                 EngineIOException err = new EngineIOException("server error");
                 err.code = packet.data;
@@ -587,18 +522,10 @@ public class Socket extends Emitter {
         long timeout = this.pingInterval + this.pingTimeout;
 
         final Socket self = this;
-        this.pingTimeoutTimer = this.getHeartbeatScheduler().schedule(new Runnable() {
-            @Override
-            public void run() {
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (self.readyState == ReadyState.CLOSED) return;
-                        self.onClose("ping timeout");
-                    }
-                });
-            }
-        }, timeout, TimeUnit.MILLISECONDS);
+        this.pingTimeoutTimer = this.getHeartbeatScheduler().schedule(() -> EventThread.exec(() -> {
+            if (self.readyState == ReadyState.CLOSED) return;
+            self.onClose("ping timeout");
+        }), timeout, TimeUnit.MILLISECONDS);
     }
 
     private void onDrain() {
@@ -607,7 +534,7 @@ public class Socket extends Emitter {
         }
 
         this.prevBufferLen = 0;
-        if (0 == this.writeBuffer.size()) {
+        if (this.writeBuffer.isEmpty()) {
             this.emit(EVENT_DRAIN);
         } else {
             this.flush();
@@ -616,7 +543,7 @@ public class Socket extends Emitter {
 
     private void flush() {
         if (this.readyState != ReadyState.CLOSED && this.transport.writable &&
-                !this.upgrading && this.writeBuffer.size() != 0) {
+                !this.upgrading && !this.writeBuffer.isEmpty()) {
             if (logger.isLoggable(Level.FINE)) {
                 logger.fine(String.format("flushing %d packets in socket", this.writeBuffer.size()));
             }
@@ -662,21 +589,11 @@ public class Socket extends Emitter {
      * @param fn callback to be called on drain
      */
     public void send(final String msg, final Runnable fn) {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                Socket.this.sendPacket(Packet.MESSAGE, msg, fn);
-            }
-        });
+        EventThread.exec(() -> Socket.this.sendPacket(Packet.MESSAGE, msg, fn));
     }
 
     public void send(final byte[] msg, final Runnable fn) {
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                Socket.this.sendPacket(Packet.MESSAGE, msg, fn);
-            }
-        });
+        EventThread.exec(() -> Socket.this.sendPacket(Packet.MESSAGE, msg, fn));
     }
 
     private void sendPacket(String type, Runnable fn) {
@@ -684,12 +601,12 @@ public class Socket extends Emitter {
     }
 
     private void sendPacket(String type, String data, Runnable fn) {
-        Packet<String> packet = new Packet<String>(type, data);
+        Packet<String> packet = new Packet<>(type, data);
         sendPacket(packet, fn);
     }
 
     private void sendPacket(String type, byte[] data, Runnable fn) {
-        Packet<byte[]> packet = new Packet<byte[]>(type, data);
+        Packet<byte[]> packet = new Packet<>(type, data);
         sendPacket(packet, fn);
     }
 
@@ -701,12 +618,7 @@ public class Socket extends Emitter {
         this.emit(EVENT_PACKET_CREATE, packet);
         this.writeBuffer.offer(packet);
         if (null != fn) {
-            this.once(EVENT_FLUSH, new Listener() {
-                @Override
-                public void call(Object... args) {
-                    fn.run();
-                }
-            });
+            this.once(EVENT_FLUSH, args -> fn.run());
         }
         this.flush();
     }
@@ -725,43 +637,31 @@ public class Socket extends Emitter {
 
                     final Socket self = Socket.this;
 
-                    final Runnable close = new Runnable() {
-                        @Override
-                        public void run() {
-                            self.onClose("forced close");
-                            logger.fine("socket closing - telling transport to close");
-                            self.transport.close();
-                        }
+                    final Runnable close = () -> {
+                        self.onClose("forced close");
+                        logger.fine("socket closing - telling transport to close");
+                        self.transport.close();
                     };
 
                     final Listener[] cleanupAndClose = new Listener[1];
-                    cleanupAndClose[0] = new Listener() {
-                        @Override
-                        public void call(Object ...args) {
-                            self.off(EVENT_UPGRADE, cleanupAndClose[0]);
-                            self.off(EVENT_UPGRADE_ERROR, cleanupAndClose[0]);
-                            close.run();
-                        }
+                    cleanupAndClose[0] = args -> {
+                        self.off(EVENT_UPGRADE, cleanupAndClose[0]);
+                        self.off(EVENT_UPGRADE_ERROR, cleanupAndClose[0]);
+                        close.run();
                     };
 
-                    final Runnable waitForUpgrade = new Runnable() {
-                        @Override
-                        public void run() {
-                            // wait for updade to finish since we can't send packets while pausing a transport
-                            self.once(EVENT_UPGRADE, cleanupAndClose[0]);
-                            self.once(EVENT_UPGRADE_ERROR, cleanupAndClose[0]);
-                        }
+                    final Runnable waitForUpgrade = () -> {
+                        // wait for updade to finish since we can't send packets while pausing a transport
+                        self.once(EVENT_UPGRADE, cleanupAndClose[0]);
+                        self.once(EVENT_UPGRADE_ERROR, cleanupAndClose[0]);
                     };
 
-                    if (Socket.this.writeBuffer.size() > 0) {
-                        Socket.this.once(EVENT_DRAIN, new Listener() {
-                            @Override
-                            public void call(Object... args) {
-                                if (Socket.this.upgrading) {
-                                    waitForUpgrade.run();
-                                } else {
-                                    close.run();
-                                }
+                    if (!Socket.this.writeBuffer.isEmpty()) {
+                        Socket.this.once(EVENT_DRAIN, args -> {
+                            if (Socket.this.upgrading) {
+                                waitForUpgrade.run();
+                            } else {
+                                close.run();
                             }
                         });
                     } else if (Socket.this.upgrading) {
@@ -829,7 +729,7 @@ public class Socket extends Emitter {
     }
 
     /*package*/ List<String > filterUpgrades(List<String> upgrades) {
-        List<String> filteredUpgrades = new ArrayList<String>();
+        List<String> filteredUpgrades = new ArrayList<>();
         for (String upgrade : upgrades) {
             if (this.transports.contains(upgrade)) {
                 filteredUpgrades.add(upgrade);
@@ -852,13 +752,10 @@ public class Socket extends Emitter {
     }
 
     private ScheduledExecutorService createHeartbeatScheduler() {
-        return Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r, "engine.io-client.heartbeat-" + HEARTBEAT_THREAD_COUNTER.getAndIncrement());
-                thread.setDaemon(true);
-                return thread;
-            }
+        return Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "engine.io-client.heartbeat-" + HEARTBEAT_THREAD_COUNTER.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
         });
     }
 

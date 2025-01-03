@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class Emitter {
 
-    private ConcurrentMap<String, ConcurrentLinkedQueue<Listener>> callbacks
+    private final ConcurrentMap<String, ConcurrentLinkedQueue<Listener>> callbacks
             = new ConcurrentHashMap<String, ConcurrentLinkedQueue<Listener>>();
 
     /**
@@ -28,7 +28,7 @@ public class Emitter {
     public Emitter on(String event, Listener fn) {
         ConcurrentLinkedQueue<Listener> callbacks = this.callbacks.get(event);
         if (callbacks == null) {
-            callbacks = new ConcurrentLinkedQueue <Listener>();
+            callbacks = new ConcurrentLinkedQueue<>();
             ConcurrentLinkedQueue<Listener> tempCallbacks = this.callbacks.putIfAbsent(event, callbacks);
             if (tempCallbacks != null) {
                 callbacks = tempCallbacks;
@@ -129,7 +129,7 @@ public class Emitter {
     public List<Listener> listeners(String event) {
         ConcurrentLinkedQueue<Listener> callbacks = this.callbacks.get(event);
         return callbacks != null ?
-                new ArrayList<Listener>(callbacks) : new ArrayList<Listener>(0);
+                new ArrayList<>(callbacks) : new ArrayList<>(0);
     }
 
     /**

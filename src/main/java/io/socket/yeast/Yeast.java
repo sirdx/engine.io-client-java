@@ -8,12 +8,12 @@ import java.util.Map;
  * A Java implementation of yeast. https://github.com/unshiftio/yeast
  */
 public final class Yeast {
-    private static char[] alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_".toCharArray();
+    private static final char[] alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_".toCharArray();
 
-    private static int length = alphabet.length;
+    private static final int length = alphabet.length;
     private static int seed = 0;
     private static String prev;
-    private static Map<Character, Integer> map = new HashMap<Character, Integer>(length);
+    private static final Map<Character, Integer> map = new HashMap<>(length);
     static {
         for (int i = 0; i < length; i++) {
             map.put(alphabet[i], i);
