@@ -1,7 +1,7 @@
-var fs = require('fs');
-var engine = require('engine.io');
+const fs = require('fs');
+const engine = require('engine.io');
 
-var http;
+let http;
 if (process.env.SSL) {
   http = require('https').createServer({
     key: fs.readFileSync(__dirname + '/key.pem'),
@@ -11,12 +11,12 @@ if (process.env.SSL) {
   http = require('http').createServer();
 }
 
-var server = engine.attach(http, {
+const server = engine.attach(http, {
   pingInterval: 500,
   wsEngine: 'ws'
 });
 
-var port = process.env.PORT || 3000
+const port = process.env.PORT || 3000;
 http.listen(port, function() {
   console.log('Engine.IO server listening on port', port);
 });
@@ -37,7 +37,7 @@ server.on('connection', function(socket) {
 
 
 function before(context, name, fn) {
-  var method = context[name];
+  const method = context[name];
   context[name] = function() {
     fn.apply(this, arguments);
     return method.apply(this, arguments);
@@ -46,14 +46,14 @@ function before(context, name, fn) {
 
 before(server, 'handleRequest', function(req, res) {
   // echo a header value
-  var value = req.headers['x-engineio'];
+  const value = req.headers['x-engineio'];
   if (!value) return;
   res.setHeader('X-EngineIO', ['hi', value]);
 });
 
 before(server, 'handleUpgrade', function(req, socket, head) {
   // echo a header value for websocket handshake
-  var value = req.headers['x-engineio'];
+  const value = req.headers['x-engineio'];
   if (!value) return;
   this.ws.once('headers', function(headers) {
     headers.push('X-EngineIO: hi');
