@@ -35,8 +35,9 @@ public class ExecutionTest extends Connection {
     }
 
     private void exec(String mainClass) throws InterruptedException, IOException {
-        Process process = Runtime.getRuntime().exec(String.format("mvn --quiet exec:java" +
-                " -Dexec.mainClass=%s -Dexec.classpathScope=test", mainClass), createEnv());
+        String mvnFileName = System.getProperty("os.name").toLowerCase().contains("windows") ? "mvn.cmd" : "mvn";
+        Process process = Runtime.getRuntime().exec(String.format("%s --quiet exec:java" +
+                " -Dexec.mainClass=%s -Dexec.classpathScope=test", mvnFileName, mainClass), createEnv());
         BufferedReader input = new BufferedReader(
                 new InputStreamReader(process.getInputStream()));
         String line;
