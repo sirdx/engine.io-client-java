@@ -12,7 +12,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertThat;
 
-;
 
 @RunWith(JUnit4.class)
 public class YeastTest {

@@ -15,7 +15,7 @@ import static org.junit.Assert.assertThat;
 @RunWith(JUnit4.class)
 public class ExecutionTest extends Connection {
 
-    private static final Logger logger = Logger.getLogger(Socket.class.getName());
+    private static final Logger logger = Logger.getLogger(ExecutionTest.class.getName());
 
     final static int TIMEOUT = 30 * 1000;
 

@@ -171,7 +171,7 @@ public class TransportTest {
         assertThat(ws.uri(), containsString("ws://[::1]:8080/engine.io"));
     }
 
-    class Polling extends PollingXHR {
+    static class Polling extends PollingXHR {
 
         public Polling(Options opts) {
             super(opts);
@@ -182,7 +182,7 @@ public class TransportTest {
         }
     }
 
-    class WS extends WebSocket {
+    static class WS extends WebSocket {
 
         public WS(Transport.Options opts) {
             super(opts);

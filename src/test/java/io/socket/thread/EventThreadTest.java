@@ -17,16 +17,11 @@ public class EventThreadTest {
 
     @Test
     public void isCurrent() throws InterruptedException {
-        final BlockingQueue<Boolean> queue = new LinkedBlockingQueue<Boolean>();
+        final BlockingQueue<Boolean> queue = new LinkedBlockingQueue<>();
 
         queue.offer(EventThread.isCurrent());
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                queue.offer(EventThread.isCurrent());
-            }
-        });
+        EventThread.exec(() -> queue.offer(EventThread.isCurrent()));
 
         assertThat(queue.take(), is(false));
         assertThat(queue.take(), is(true));
@@ -34,28 +29,15 @@ public class EventThreadTest {
 
     @Test
     public void exec() throws InterruptedException {
-        final BlockingQueue<Integer> queue = new LinkedBlockingQueue<Integer>();
+        final BlockingQueue<Integer> queue = new LinkedBlockingQueue<>();
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                queue.offer(0);
-                EventThread.exec(new Runnable() {
-                    @Override
-                    public void run() {
-                        queue.offer(1);
-                    }
-                });
-                queue.offer(2);
-            }
+        EventThread.exec(() -> {
+            queue.offer(0);
+            EventThread.exec(() -> queue.offer(1));
+            queue.offer(2);
         });
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                queue.offer(3);
-            }
-        });
+        EventThread.exec(() -> queue.offer(3));
 
         for (int i = 0; i < 4; i++) {
             assertThat(queue.take(), is(i));
@@ -64,24 +46,18 @@ public class EventThreadTest {
 
     @Test
     public void nextTick() throws InterruptedException {
-        final BlockingQueue<Integer> queue = new LinkedBlockingQueue<Integer>();
-        final Set<Thread> threads = new HashSet<Thread>();
+        final BlockingQueue<Integer> queue = new LinkedBlockingQueue<>();
+        final Set<Thread> threads = new HashSet<>();
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
+        EventThread.exec(() -> {
+            threads.add(Thread.currentThread());
+
+            queue.offer(0);
+            EventThread.nextTick(() -> {
                 threads.add(Thread.currentThread());
-
-                queue.offer(0);
-                EventThread.nextTick(new Runnable() {
-                    @Override
-                    public void run() {
-                        threads.add(Thread.currentThread());
-                        queue.offer(2);
-                    }
-                });
-                queue.offer(1);
-            }
+                queue.offer(2);
+            });
+            queue.offer(1);
         });
 
         for (int i = 0; i < 3; i++) {

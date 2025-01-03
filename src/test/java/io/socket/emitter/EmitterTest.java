@@ -16,22 +16,16 @@ public class EmitterTest {
     @Test
     public void on() {
         Emitter emitter = new Emitter();
-        final List<Object> calls = new ArrayList<Object>();
+        final List<Object> calls = new ArrayList<>();
 
-        emitter.on("foo", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-                calls.add(args[0]);
-            }
+        emitter.on("foo", args -> {
+            calls.add("one");
+            calls.add(args[0]);
         });
 
-        emitter.on("foo", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("two");
-                calls.add(args[0]);
-            }
+        emitter.on("foo", args -> {
+            calls.add("two");
+            calls.add(args[0]);
         });
 
         emitter.emit("foo", 1);
@@ -46,12 +40,9 @@ public class EmitterTest {
         Emitter emitter = new Emitter();
         final List<Object> calls = new ArrayList<Object>();
 
-        emitter.once("foo", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-                calls.add(args[0]);
-            }
+        emitter.once("foo", args -> {
+            calls.add("one");
+            calls.add(args[0]);
         });
 
         emitter.emit("foo", 1);
@@ -65,20 +56,10 @@ public class EmitterTest {
     @Test
     public void off() {
         Emitter emitter = new Emitter();
-        final List<Object> calls = new ArrayList<Object>();
+        final List<Object> calls = new ArrayList<>();
 
-        Emitter.Listener one = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-            }
-        };
-        Emitter.Listener two = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("two");
-            }
-        };
+        Emitter.Listener one = args -> calls.add("one");
+        Emitter.Listener two = args -> calls.add("two");
 
         emitter.on("foo", one);
         emitter.on("foo", two);
@@ -92,14 +73,9 @@ public class EmitterTest {
     @Test
     public void offWithOnce() {
         Emitter emitter = new Emitter();
-        final List<Object> calls = new ArrayList<Object>();
+        final List<Object> calls = new ArrayList<>();
 
-        Emitter.Listener one = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-            }
-        };
+        Emitter.Listener one = args -> calls.add("one");
 
         emitter.once("foo", one);
         emitter.off("foo", one);
@@ -113,18 +89,8 @@ public class EmitterTest {
     public void offWhenCalledfromEvent() {
         final Emitter emitter = new Emitter();
         final boolean[] called = new boolean[] {false};
-        final Emitter.Listener b = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                called[0] = true;
-            }
-        };
-        emitter.on("tobi", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                emitter.off("tobi", b);
-            }
-        });
+        final Emitter.Listener b = args -> called[0] = true;
+        emitter.on("tobi", args -> emitter.off("tobi", b));
         emitter.once("tobi", b);
         emitter.emit("tobi");
         assertThat(called[0], is(true));
@@ -138,18 +104,8 @@ public class EmitterTest {
         Emitter emitter = new Emitter();
         final List<Object> calls = new ArrayList<Object>();
 
-        Emitter.Listener one = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-            }
-        };
-        Emitter.Listener two = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("two");
-            }
-        };
+        Emitter.Listener one = args -> calls.add("one");
+        Emitter.Listener two = args -> calls.add("two");
 
         emitter.on("foo", one);
         emitter.on("foo", two);
@@ -166,18 +122,8 @@ public class EmitterTest {
         Emitter emitter = new Emitter();
         final List<Object> calls = new ArrayList<Object>();
 
-        Emitter.Listener one = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("one");
-            }
-        };
-        Emitter.Listener two = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                calls.add("two");
-            }
-        };
+        Emitter.Listener one = args -> calls.add("one");
+        Emitter.Listener two = args -> calls.add("two");
 
         emitter.on("foo", one);
         emitter.on("bar", two);
@@ -196,10 +142,7 @@ public class EmitterTest {
     @Test
     public void listeners() {
         Emitter emitter = new Emitter();
-        Emitter.Listener foo = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {}
-        };
+        Emitter.Listener foo = args -> {};
         emitter.on("foo", foo);
         assertThat(emitter.listeners("foo").toArray(), is(new Object[] {foo}));
     }
@@ -213,10 +156,7 @@ public class EmitterTest {
     @Test
     public void hasListeners() {
         Emitter emitter = new Emitter();
-        emitter.on("foo", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {}
-        });
+        emitter.on("foo", args -> {});
         assertThat(emitter.hasListeners("foo"), is(true));
     }
 

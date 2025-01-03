@@ -1,6 +1,5 @@
 package io.socket.engineio.client;
 
-import io.socket.emitter.Emitter;
 import io.socket.engineio.client.transports.Polling;
 import io.socket.engineio.client.transports.WebSocket;
 import io.socket.thread.EventThread;
@@ -8,9 +7,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -21,8 +17,8 @@ import static java.util.Collections.singletonMap;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.Matchers.*;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
 
 @RunWith(JUnit4.class)
@@ -31,21 +27,11 @@ public class ServerConnectionTest extends Connection {
     private Socket socket;
 
     @Test(timeout = TIMEOUT)
-    public void openAndClose() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<String> events = new LinkedBlockingQueue<String>();
+    public void openAndClose() throws InterruptedException {
+        final BlockingQueue<String> events = new LinkedBlockingQueue<>();
 
         socket = new Socket(createOptions());
-        socket.on(Socket.EVENT_OPEN, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                events.offer("onopen");
-            }
-        }).on(Socket.EVENT_CLOSE, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                events.offer("onclose");
-            }
-        });
+        socket.on(Socket.EVENT_OPEN, args -> events.offer("onopen")).on(Socket.EVENT_CLOSE, args -> events.offer("onclose"));
         socket.open();
 
         assertThat(events.take(), is("onopen"));
@@ -54,21 +40,11 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void messages() throws URISyntaxException, InterruptedException {
+    public void messages() throws InterruptedException {
         final BlockingQueue<String> events = new LinkedBlockingQueue<String>();
 
         socket = new Socket(createOptions());
-        socket.on(Socket.EVENT_OPEN, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                socket.send("hello");
-            }
-        }).on(Socket.EVENT_MESSAGE, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                events.offer((String) args[0]);
-            }
-        });
+        socket.on(Socket.EVENT_OPEN, args -> socket.send("hello")).on(Socket.EVENT_MESSAGE, args -> events.offer((String) args[0]));
         socket.open();
 
         assertThat(events.take(), is("hi"));
@@ -77,16 +53,11 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void handshake() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+    public void handshake() throws InterruptedException {
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<>();
 
         socket = new Socket(createOptions());
-        socket.on(Socket.EVENT_HANDSHAKE, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                values.offer(args);
-            }
-        });
+        socket.on(Socket.EVENT_HANDSHAKE, args -> values.offer(args));
         socket.open();
 
         Object[] args = (Object[])values.take();
@@ -100,22 +71,12 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void upgrade() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<Object[]> events = new LinkedBlockingQueue<Object[]>();
+    public void upgrade() throws InterruptedException {
+        final BlockingQueue<Object[]> events = new LinkedBlockingQueue<>();
 
         socket = new Socket(createOptions());
-        socket.on(Socket.EVENT_UPGRADING, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                events.offer(args);
-            }
-        });
-        socket.on(Socket.EVENT_UPGRADE, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                events.offer(args);
-            }
-        });
+        socket.on(Socket.EVENT_UPGRADING, args -> events.offer(args));
+        socket.on(Socket.EVENT_UPGRADE, args -> events.offer(args));
         socket.open();
 
         Object[] args1 = events.take();
@@ -134,35 +95,26 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void pollingHeaders() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+    public void pollingHeaders() throws InterruptedException {
+        final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
 
         Socket.Options opts = createOptions();
         opts.transports = new String[] {Polling.NAME};
 
         socket = new Socket(opts);
-        socket.on(Socket.EVENT_TRANSPORT, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                Transport transport = (Transport)args[0];
-                transport.on(Transport.EVENT_REQUEST_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        headers.put("X-EngineIO", Arrays.asList("foo"));
-                    }
-                }).on(Transport.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        List<String> values = headers.get("X-EngineIO");
-                        messages.offer(values.get(0));
-                        messages.offer(values.get(1));
-                    }
-                });
-            }
+        socket.on(Socket.EVENT_TRANSPORT, args -> {
+            Transport transport = (Transport)args[0];
+            transport.on(Transport.EVENT_REQUEST_HEADERS, args1 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args1[0];
+                headers.put("X-EngineIO", singletonList("foo"));
+            }).on(Transport.EVENT_RESPONSE_HEADERS, args2 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args2[0];
+                List<String> values = headers.get("X-EngineIO");
+                messages.offer(values.get(0));
+                messages.offer(values.get(1));
+            });
         });
         socket.open();
 
@@ -172,29 +124,23 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void pollingHeaders_withExtraHeadersOption() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+    public void pollingHeaders_withExtraHeadersOption() throws InterruptedException {
+        final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
 
         Socket.Options opts = createOptions();
         opts.transports = new String[] {Polling.NAME};
         opts.extraHeaders = singletonMap("X-EngineIO", singletonList("bar"));
 
         socket = new Socket(opts);
-        socket.on(Socket.EVENT_TRANSPORT, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                Transport transport = (Transport)args[0];
-                transport.on(Transport.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        List<String> values = headers.get("X-EngineIO");
-                        messages.offer(values.get(0));
-                        messages.offer(values.get(1));
-                    }
-                });
-            }
+        socket.on(Socket.EVENT_TRANSPORT, args -> {
+            Transport transport = (Transport)args[0];
+            transport.on(Transport.EVENT_RESPONSE_HEADERS, args1 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args1[0];
+                List<String> values = headers.get("X-EngineIO");
+                messages.offer(values.get(0));
+                messages.offer(values.get(1));
+            });
         });
         socket.open();
 
@@ -204,35 +150,26 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void websocketHandshakeHeaders() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+    public void websocketHandshakeHeaders() throws InterruptedException {
+        final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
 
         Socket.Options opts = createOptions();
         opts.transports = new String[] {WebSocket.NAME};
 
         socket = new Socket(opts);
-        socket.on(Socket.EVENT_TRANSPORT, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                Transport transport = (Transport)args[0];
-                transport.on(Transport.EVENT_REQUEST_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        headers.put("X-EngineIO", Arrays.asList("foo"));
-                    }
-                }).on(Transport.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        List<String> values = headers.get("X-EngineIO");
-                        messages.offer(values.get(0));
-                        messages.offer(values.get(1));
-                    }
-                });
-            }
+        socket.on(Socket.EVENT_TRANSPORT, args -> {
+            Transport transport = (Transport)args[0];
+            transport.on(Transport.EVENT_REQUEST_HEADERS, args1 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args1[0];
+                headers.put("X-EngineIO", singletonList("foo"));
+            }).on(Transport.EVENT_RESPONSE_HEADERS, args2 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args2[0];
+                List<String> values = headers.get("X-EngineIO");
+                messages.offer(values.get(0));
+                messages.offer(values.get(1));
+            });
         });
         socket.open();
 
@@ -242,29 +179,23 @@ public class ServerConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
-    public void websocketHandshakeHeaders_withExtraHeadersOption() throws URISyntaxException, InterruptedException {
-        final BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+    public void websocketHandshakeHeaders_withExtraHeadersOption() throws InterruptedException {
+        final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
 
         Socket.Options opts = createOptions();
         opts.transports = new String[] {WebSocket.NAME};
         opts.extraHeaders = singletonMap("X-EngineIO", singletonList("bar"));
 
         socket = new Socket(opts);
-        socket.on(Socket.EVENT_TRANSPORT, new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                Transport transport = (Transport)args[0];
-                transport.on(Transport.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
-                        List<String> values = headers.get("X-EngineIO");
-                        messages.offer(values.get(0));
-                        messages.offer(values.get(1));
-                    }
-                });
-            }
+        socket.on(Socket.EVENT_TRANSPORT, args -> {
+            Transport transport = (Transport)args[0];
+            transport.on(Transport.EVENT_RESPONSE_HEADERS, args1 -> {
+                @SuppressWarnings("unchecked")
+                Map<String, List<String>> headers = (Map<String, List<String>>) args1[0];
+                List<String> values = headers.get("X-EngineIO");
+                messages.offer(values.get(0));
+                messages.offer(values.get(1));
+            });
         });
         socket.open();
 
@@ -275,33 +206,27 @@ public class ServerConnectionTest extends Connection {
 
     @Test(timeout = TIMEOUT)
     public void rememberWebsocket() throws InterruptedException {
-        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<>();
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                final Socket socket = new Socket(createOptions());
+        EventThread.exec(() -> {
+            final Socket socket = new Socket(createOptions());
 
-                socket.on(Socket.EVENT_UPGRADE, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        Transport transport = (Transport) args[0];
-                        socket.close();
-                        if (WebSocket.NAME.equals(transport.name)) {
-                            Socket.Options opts = new Socket.Options();
-                            opts.port = PORT;
-                            opts.rememberUpgrade = true;
+            socket.on(Socket.EVENT_UPGRADE, args -> {
+                Transport transport = (Transport) args[0];
+                socket.close();
+                if (WebSocket.NAME.equals(transport.name)) {
+                    Socket.Options opts = new Socket.Options();
+                    opts.port = PORT;
+                    opts.rememberUpgrade = true;
 
-                            Socket socket2 = new Socket(opts);
-                            socket2.open();
-                            values.offer(socket2.transport.name);
-                            socket2.close();
-                        }
-                    }
-                });
-                socket.open();
-                values.offer(socket.transport.name);
-            }
+                    Socket socket2 = new Socket(opts);
+                    socket2.open();
+                    values.offer(socket2.transport.name);
+                    socket2.close();
+                }
+            });
+            socket.open();
+            values.offer(socket.transport.name);
         });
 
         assertThat((String)values.take(), is(Polling.NAME));
@@ -310,33 +235,27 @@ public class ServerConnectionTest extends Connection {
 
     @Test(timeout = TIMEOUT)
     public void notRememberWebsocket() throws InterruptedException {
-        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<>();
 
-        EventThread.exec(new Runnable() {
-            @Override
-            public void run() {
-                final Socket socket = new Socket(createOptions());
+        EventThread.exec(() -> {
+            final Socket socket = new Socket(createOptions());
 
-                socket.on(Socket.EVENT_UPGRADE, new Emitter.Listener() {
-                    @Override
-                    public void call(Object... args) {
-                        Transport transport = (Transport)args[0];
-                        socket.close();
-                        if (WebSocket.NAME.equals(transport.name)) {
-                            Socket.Options opts = new Socket.Options();
-                            opts.port = PORT;
-                            opts.rememberUpgrade = false;
+            socket.on(Socket.EVENT_UPGRADE, args -> {
+                Transport transport = (Transport)args[0];
+                socket.close();
+                if (WebSocket.NAME.equals(transport.name)) {
+                    Socket.Options opts = new Socket.Options();
+                    opts.port = PORT;
+                    opts.rememberUpgrade = false;
 
-                            final Socket socket2 = new Socket(opts);
-                            socket2.open();
-                            values.offer(socket2.transport.name);
-                            socket2.close();
-                        }
-                    }
-                });
-                socket.open();
-                values.offer(socket.transport.name);
-            }
+                    final Socket socket2 = new Socket(opts);
+                    socket2.open();
+                    values.offer(socket2.transport.name);
+                    socket2.close();
+                }
+            });
+            socket.open();
+            values.offer(socket.transport.name);
         });
 
         assertThat((String) values.take(), is(Polling.NAME));
