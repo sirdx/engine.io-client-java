@@ -2,11 +2,11 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.socket</groupId>
   <artifactId>engine.io-client</artifactId>
-  <version>2.1.1-SNAPSHOT</version>
+  <version>3.0.0</version>
   <packaging>jar</packaging>
   <name>engine.io-client</name>
   <description>Engine.IO Client Library for Java</description>
-  <url>https://github.com/socketio/engine.io-client-java</url>
+  <url>https://github.com/sirdx/engine.io-client-java</url>
 
   <parent>
     <groupId>org.sonatype.oss</groupId>
@@ -39,10 +39,13 @@
       <name>Naoyuki Kanezawa</name>
       <email>naoyuki.kanezawa@gmail.com</email>
     </developer>
+    <developer>
+      <id>sirdx</id>
+    </developer>
   </developers>
 
   <prerequisites>
-    <maven>3.0.4</maven>
+    <maven>3.6.3</maven>
   </prerequisites>
 
   <dependencies>
